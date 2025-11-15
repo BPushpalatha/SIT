@@ -71,17 +71,32 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    
+    // Support both JSON and form submissions
+    let payload: any = {}
+    const contentType = request.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      payload = await request.json()
+    } else if (contentType.includes('multipart/form-data') || contentType.includes('application/x-www-form-urlencoded')) {
+      const formData = await request.formData()
+      formData.forEach((value, key) => (payload[key] = value))
+    } else {
+      // fallback to attempting JSON
+      try {
+        payload = await request.json()
+      } catch (e) {
+        payload = {}
+      }
+    }
+
     const item = {
       id: Date.now(),
-      title: formData.get('title'),
-      description: formData.get('description'),
-      category: formData.get('category'),
-      location: formData.get('location'),
-      contactInfo: formData.get('contactInfo'),
-      type: formData.get('type'),
-      userId: formData.get('userId'),
+      title: payload.title,
+      description: payload.description,
+      category: payload.category,
+      location: payload.location,
+      contactInfo: payload.contactInfo,
+      type: payload.type,
+      userId: payload.userId,
       imageUrl: null, // In production, you'd handle file upload here
       createdAt: new Date().toISOString()
     }
