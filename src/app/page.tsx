@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/auth'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
@@ -159,9 +159,10 @@ function RoomsFeature() {
 }
 
 function ChatbotFeature() {
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const messagesRef = useRef<HTMLDivElement | null>(null)
 
   const sendMessage = async () => {
     if (!input.trim()) return
@@ -178,8 +179,16 @@ function ChatbotFeature() {
         body: JSON.stringify({ message: input })
       })
 
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        const msg = err?.error || 'Server error: failed to get response'
+        setMessages(prev => [...prev, { role: 'assistant', content: msg }])
+        return
+      }
+
       const data = await response.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      const reply = data?.response || data?.error || 'No response from server'
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
     } catch (error) {
       console.error('Error sending message:', error)
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }])
@@ -188,9 +197,16 @@ function ChatbotFeature() {
     }
   }
 
+  // auto-scroll when messages update
+  useEffect(() => {
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+    }
+  }, [messages])
+
   return (
     <div className="space-y-4">
-      <div className="h-96 border rounded-lg p-4 overflow-y-auto bg-gray-50">
+  <div ref={messagesRef} className="h-96 border rounded-lg p-4 overflow-y-auto bg-gray-50">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
             <MessageCircle className="w-12 h-12 mx-auto mb-4" />
